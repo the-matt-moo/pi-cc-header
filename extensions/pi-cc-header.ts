@@ -92,6 +92,17 @@ const CMAP: Record<string, string> = {
 	p: "38;5;129",
 	c: "38;2;251;73;52",
 };
+const QUOTE_AUTHOR_COMPLEMENT: Record<string, string> = {
+	a: "38;2;38;136;168",
+	r: "38;5;51",
+	o: "38;2;50;135;255",
+	y: "38;2;180;60;255",
+	g: "38;2;235;75;235",
+	w: "38;5;240",
+	b: "38;5;208",
+	p: "38;5;226",
+	c: "38;2;4;182;203",
+};
 const GMAP: Record<string, string[]> = {
 	a: ["38;2;217;119;87", "38;2;200;100;70", "38;2;170;80;55", "38;2;130;60;40"],
 	r: ["38;2;255;80;80", "38;2;220;40;40", "38;2;180;20;20", "38;2;140;10;10"],
@@ -212,6 +223,11 @@ export function getRandomQuote(ctx: ExtensionContext): string | null {
 	if (quotes.length === 0) return null;
 	const random = quotes[Math.floor(Math.random() * quotes.length)];
 	return formatQuote(random.quote, random.author);
+}
+
+export function formatQuoteAuthor(author: string, colorKey: string): string {
+	const color = QUOTE_AUTHOR_COMPLEMENT[colorKey] ?? QUOTE_AUTHOR_COMPLEMENT.c;
+	return `\x1b[38;5;244m~\x1b[39m\x1b[${color}m${author}\x1b[39m`;
 }
 
 /* ── Pi logo animation ── */
@@ -694,7 +710,11 @@ class PiHeader implements Component {
 
 					const isAuthor = idx === sloganLines.length - 1 && sloganLines.length > 1;
 					if (isAuthor) {
-						rows.push(`\x1b[${CMAP[state.sloganColorKey]}m~${sloganText}\x1b[39m`);
+						rows.push(
+							state.sloganColor
+								? formatQuoteAuthor(sloganText, state.sloganColorKey)
+								: `\x1b[38;5;244m~\x1b[39m${sloganText}`,
+						);
 					} else {
 						rows.push(
 							state.sloganColor

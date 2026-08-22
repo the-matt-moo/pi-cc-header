@@ -12,6 +12,7 @@ import {
 	MAX_SLOGAN_LENGTH,
 	configWritesEnabled,
 	formatQuote,
+	formatQuoteAuthor,
 } from "../extensions/pi-cc-header.ts";
 
 // ── pick ──
@@ -133,6 +134,15 @@ describe("configWritesEnabled", () => {
 });
 
 // ── formatQuote ──
+describe("formatQuoteAuthor", () => {
+	it("renders a grey tilde and a complementary author color", () => {
+		assert.equal(
+			formatQuoteAuthor("Seneca", "c"),
+			"\x1b[38;5;244m~\x1b[39m\x1b[38;2;4;182;203mSeneca\x1b[39m",
+		);
+	});
+});
+
 describe("formatQuote", () => {
 	it("formats short quote (10 words or fewer) on 1 line with author below", () => {
 		const result = formatQuote("We suffer more in imagination than in reality.", "Seneca");

@@ -30,7 +30,7 @@ Visual changes still apply per-session but won't be persisted.
 - Customizable slogan
 - **Custom ASCII logo** (replace the final animation frame)
 - **Random quote slogan** (`"quote"` + centered author, auto-rotated each startup)
-- **Independent slogan color** (separate from the logo/header color)
+- **Independent slogan color** (separate from the logo/header color; quote authors use a matching complementary color)
 
 ## Commands
 
@@ -66,7 +66,7 @@ Slogan color is independent of the logo color and persisted as `ccHeader.sloganC
 /pch --s -c          # toggle slogan color on/off
 ```
 
-The quote author name always matches the current slogan color.
+The author name uses a complementary color chosen for the current slogan color; its `~` prefix remains muted gray.
 
 ### Quotes
 
