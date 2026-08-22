@@ -11,6 +11,7 @@ import {
 	buildRuntimePaths,
 	MAX_SLOGAN_LENGTH,
 	configWritesEnabled,
+	formatQuote,
 } from "../extensions/pi-cc-header.ts";
 
 // ── pick ──
@@ -49,6 +50,23 @@ describe("stateFromConfig", () => {
 		assert.equal(s.versionColored, 1);
 		assert.equal(s.gradientOn, true);
 		assert.equal(s.stripeEnabled, true);
+		assert.equal(s.quoteMode, false);
+	});
+
+
+	it("reads sloganColorKey", () => {
+		const s = stateFromConfig({ sloganColorCode: "g" });
+		assert.equal(s.sloganColorKey, "g");
+	});
+
+	it("rejects invalid sloganColorKey (falls back)", () => {
+		const s = stateFromConfig({ sloganColorCode: "z" });
+		assert.equal(s.sloganColorKey, "c");
+	});
+
+	it("reads quoteMode", () => {
+		const s = stateFromConfig({ quoteMode: true });
+		assert.equal(s.quoteMode, true);
 	});
 
 	it("reads valid color key", () => {
@@ -114,6 +132,27 @@ describe("configWritesEnabled", () => {
 	});
 });
 
+// ── formatQuote ──
+describe("formatQuote", () => {
+	it("formats short quote (10 words or fewer) on 1 line with author below", () => {
+		const result = formatQuote("We suffer more in imagination than in reality.", "Seneca");
+		assert.equal(
+			result,
+			'"We suffer more in imagination than in reality."\nSeneca',
+		);
+	});
+
+	it("formats long quote (> 10 words) split across 2 lines at punctuation with author below", () => {
+		const quote = "You have power over your mind - not outside events. Realize this, and you will find strength.";
+		const result = formatQuote(quote, "Marcus Aurelius");
+		const lines = result.split("\n");
+		assert.equal(lines.length, 3);
+		assert.ok(lines[0].startsWith('"'));
+		assert.ok(lines[1].endsWith('"'));
+		assert.equal(lines[2], "Marcus Aurelius");
+	});
+});
+
 // ── colorCell ──
 describe("colorCell", () => {
 	it("renders cyan cell", () => {
@@ -171,21 +210,21 @@ describe("logoCellColor", () => {
 // ── buildRuntimePaths ──
 describe("buildRuntimePaths", () => {
 	it("builds settings and resource paths from custom agentDir", () => {
-		const paths = buildRuntimePaths("/tmp/custom-agent");
-		assert.equal(paths.settingsPath, "/tmp/custom-agent/settings.json");
-		assert.equal(paths.npmRoot, "/tmp/custom-agent/npm/node_modules");
-		assert.equal(paths.globalSkillsDir, "/tmp/custom-agent/skills");
-		assert.equal(paths.globalAgentsPath, "/tmp/custom-agent/AGENTS.md");
+		const paths = buildRuntimePaths(join("/", "tmp", "custom-agent"));
+		assert.equal(paths.settingsPath, join("/", "tmp", "custom-agent", "settings.json"));
+		assert.equal(paths.npmRoot, join("/", "tmp", "custom-agent", "npm", "node_modules"));
+		assert.equal(paths.globalSkillsDir, join("/", "tmp", "custom-agent", "skills"));
+		assert.equal(paths.globalAgentsPath, join("/", "tmp", "custom-agent", "AGENTS.md"));
 	});
 
 	it("builds project-local paths from configurable config dir name", () => {
 		const paths = buildRuntimePaths(
-			"/tmp/custom-agent",
-			"/work/repo",
+			join("/", "tmp", "custom-agent"),
+			join("/", "work", "repo"),
 			".config-pi",
 		);
-		assert.equal(paths.projectSkillsDir, "/work/repo/.config-pi/skills");
-		assert.equal(paths.projectAgentsPath, "/work/repo/.config-pi/AGENTS.md");
+		assert.equal(paths.projectSkillsDir, join("/", "work", "repo", ".config-pi", "skills"));
+		assert.equal(paths.projectAgentsPath, join("/", "work", "repo", ".config-pi", "AGENTS.md"));
 	});
 });
 

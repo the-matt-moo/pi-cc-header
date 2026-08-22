@@ -4,6 +4,17 @@
 
 All notable changes to pi-cc-header.
 
+## v1.3.0 (2026-08-22)
+
+### Added
+
+- Fork features over `eriiic7z/pi-cc-header` v1.2.0 (`the-matt-moo/pi-cc-header`).
+- `/pch --logo <l1|l2|...>` custom ASCII logo; `/pch --logo -d` restores built-in.
+- `/pch --s -quote` random quote slogan; sets `quoteMode` to auto-rotate a new quote each startup.
+- `quotes.json` embedded 70-quote corpus, overridable per project.
+- Independent slogan color: `/pch --s -c <code>` uses the same codes as `--c`; stored as `ccHeader.sloganColorCode`. The quote author renders in the slogan color.
+- Quotes over 10 words are split across up to 2 lines at natural punctuation; author centered beneath.
+
 ## v1.2.0 (2026-08-21)
 
 ### Changed

@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 /* ── Types ── */
 interface CCHeaderConfig extends Record<string, any> {
@@ -41,6 +42,7 @@ interface CCHeaderState {
 	slogan: string;
 	sloganOn: boolean;
 	sloganColor: boolean;
+	sloganColorKey: string;
 	disabled: boolean;
 	showModelLine: boolean; // NEW: toggle model/thinking line
 	customLogoLines: string[] | null;
@@ -51,7 +53,7 @@ const SPEEDS = [25, 50, 75, 100] as const;
 const LOGO_COLS = 8;
 const LOGO_ROWS = 7;
 const LOGO_PIXEL_WIDTH = 14;
-export const MAX_SLOGAN_LENGTH = 85;
+export const MAX_SLOGAN_LENGTH = 250;
 const COLOR_NAMES: Record<string, string> = {
 	a: "anthropic",
 	c: "clawd",
@@ -73,8 +75,10 @@ const DEFAULT_STATE: CCHeaderState = {
 	slogan: "Code something that makes you proud",
 	sloganOn: true,
 	sloganColor: true,
+	sloganColorKey: "c",
+	quoteMode: false,
 	disabled: false,
-	showModelLine: true, // NEW: default ON
+	showModelLine: true,
 	customLogoLines: null,
 };
 const CMAP: Record<string, string> = {
@@ -138,6 +142,77 @@ const GRADIENT_LEVEL: Record<string, number> = {
 /* ── Runtime state ── */
 let state: CCHeaderState = { ...DEFAULT_STATE };
 let framesDirty = true;
+
+/* ── Quotes ── */
+interface Quote {
+	quote: string;
+	author: string;
+}
+
+let quotesCache: Quote[] | null = null;
+
+function loadQuotes(ctx: ExtensionContext): Quote[] {
+	if (quotesCache) return quotesCache;
+
+	const projectRoot = ctx.cwd;
+	const quotesPath = join(projectRoot, "quotes.json");
+
+	if (!existsSync(quotesPath)) {
+		// Try the package directory as fallback
+		const __filename = fileURLToPath(import.meta.url);
+		const pkgDir = dirname(dirname(__filename));
+		const fallbackPath = join(pkgDir, "quotes.json");
+		if (existsSync(fallbackPath)) {
+			try {
+				quotesCache = JSON.parse(readFileSync(fallbackPath, "utf-8"));
+				return quotesCache!;
+			} catch {
+				return [];
+			}
+		}
+		return [];
+	}
+
+	try {
+		quotesCache = JSON.parse(readFileSync(quotesPath, "utf-8"));
+		return quotesCache!;
+	} catch {
+		return [];
+	}
+}
+
+export function formatQuote(quote: string, author: string, punctBonus = 25): string {
+	const words = quote.trim().split(/\s+/);
+	if (words.length <= 10) {
+		return `"${quote}"\n${author}`;
+	}
+
+	let bestI = 1;
+	let bestScore = Infinity;
+	for (let i = 1; i < words.length; i++) {
+		const p1 = words.slice(0, i).join(" ");
+		const p2 = words.slice(i).join(" ");
+		const lenDiff = Math.abs(p1.length - p2.length);
+		const lastChar = p1[p1.length - 1];
+		const hasPunct = [":", ".", ",", ";", "-", "—"].includes(lastChar);
+		const score = lenDiff - (hasPunct ? punctBonus : 0);
+		if (score < bestScore) {
+			bestScore = score;
+			bestI = i;
+		}
+	}
+
+	const line1 = `"${words.slice(0, bestI).join(" ")}`;
+	const line2 = `${words.slice(bestI).join(" ")}"`;
+	return `${line1}\n${line2}\n${author}`;
+}
+
+export function getRandomQuote(ctx: ExtensionContext): string | null {
+	const quotes = loadQuotes(ctx);
+	if (quotes.length === 0) return null;
+	const random = quotes[Math.floor(Math.random() * quotes.length)];
+	return formatQuote(random.quote, random.author);
+}
 
 /* ── Pi logo animation ── */
 type LogoColor =
@@ -598,19 +673,29 @@ class PiHeader implements Component {
 
 			const modelLine = `${model} · ${effort}${this.stats.agents ? `  |  ${this.stats.agents}` : ""}`;
 
-			const sloganW = visibleWidth(state.slogan);
-			const sloganText =
-				sloganW > width
-					? truncateToWidth(state.slogan, width - 3, "") + "..."
-					: state.slogan;
-
 			const rows: string[] = [piText];
 			if (state.sloganOn && state.slogan) {
-				rows.push(
-					state.sloganColor
-						? `\x1b[1m\x1b[${CMAP[state.logoColorKey]}m${sloganText}\x1b[39m\x1b[22m`
-						: muted(`\x1b[1m${sloganText}\x1b[22m`),
-				);
+				const sloganLines = state.slogan.split("\n");
+				for (let idx = 0; idx < sloganLines.length; idx++) {
+					const line = sloganLines[idx];
+					const sloganW = visibleWidth(line);
+					const sloganText =
+						sloganW > width
+							? truncateToWidth(line, width - 3, "") + "..."
+							: line;
+
+					const isAuthor = idx === sloganLines.length - 1 && sloganLines.length > 1;
+					if (isAuthor) {
+						// Author in slogan color, regular weight
+						rows.push(`\x1b[${CMAP[state.sloganColorKey]}m${sloganText}\x1b[39m`);
+					} else {
+						rows.push(
+							state.sloganColor
+								? `\x1b[1m\x1b[${CMAP[state.sloganColorKey]}m${sloganText}\x1b[39m\x1b[22m`
+								: muted(`\x1b[1m${sloganText}\x1b[22m`),
+						);
+					}
+				}
 			}
 			if (state.showModelLine) rows.push(muted(modelLine));
 			rows.push(muted(statsLine));
@@ -635,7 +720,9 @@ class PiHeader implements Component {
 			lines.push(center(logoLines[i], width, 4));
 		}
 		for (const row of infoStrings) {
-			if (row) lines.push(center(truncateToWidth(row, width, ""), width));
+			if (row) {
+				lines.push(center(truncateToWidth(row, width, ""), width, 0));
+			}
 		}
 		return lines;
 	}
@@ -727,6 +814,16 @@ export function stateFromConfig(h: Record<string, any>): CCHeaderState {
 			(v) => typeof v === "boolean",
 			DEFAULT_STATE.sloganColor,
 		),
+		sloganColorKey: pick(
+			h.sloganColorCode,
+			(v) => !!CMAP[v as string],
+			DEFAULT_STATE.sloganColorKey,
+		),
+		quoteMode: pick(
+			(h.quoteMode ?? h.stoicMode),
+			(v) => typeof v === "boolean",
+			DEFAULT_STATE.quoteMode,
+		),
 		disabled: pick(
 			h.disabled,
 			(v) => typeof v === "boolean",
@@ -756,6 +853,8 @@ function stateToConfig(): Record<string, any> {
 		slogan: state.slogan,
 		sloganOn: state.sloganOn,
 		sloganColor: state.sloganColor,
+		sloganColorKey: state.sloganColorKey,
+		quoteMode: state.quoteMode,
 		disabled: state.disabled,
 		showModelLine: state.showModelLine,
 		customLogo: state.customLogoLines,
@@ -951,6 +1050,18 @@ export default function (pi: ExtensionAPI) {
 		const h = getCCHeaderConfig(s);
 		state = stateFromConfig(h);
 		if (state.disabled) return;
+
+		if (state.quoteMode && state.sloganOn) {
+			const quote = getRandomQuote(ctx);
+			if (quote) {
+				state.slogan = quote;
+				if (configWritesEnabled(s)) {
+					s.ccHeader = { ...getCCHeaderConfig(s), ...stateToConfig() };
+					saveSettings(s);
+				}
+			}
+		}
+
 		configStartupEnabled(s);
 		invalidateStats();
 		framesDirty = true;
@@ -969,7 +1080,7 @@ export default function (pi: ExtensionAPI) {
 	/* ── /pch command ── */
 	pi.registerCommand("pch", {
 		description:
-			"pi-cc-header control: --tg (toggle enable/disable), --c <color> (logo color), --i (IBM stripes), --m (Minecraft), --sp <ms> (speed), --v [all|pi|off] (version color), --ps (pkg skills), --s [text|-c|-d] (slogan), --df (defaults), --cl (clear config), --ml (toggle model/thinking line), --h (help)",
+			"pi-cc-header control: --tg (toggle enable/disable), --c <color> (logo color), --i (IBM stripes), --m (Minecraft), --sp <ms> (speed), --v [all|pi|off] (version color), --ps (pkg skills), --s [text|-c [code]|-d|-quote] (slogan, -c sets slogan color), --logo (custom ASCII logo), --df (defaults), --cl (clear config), --ml (toggle model/thinking line), --h (help)",
 		handler: async (args, ctx) => {
 			const s = readSettings(settingsPath);
 			if (!s) {
@@ -992,7 +1103,7 @@ export default function (pi: ExtensionAPI) {
   --sp [ms]         Animation speed (25/50/75/100) | no arg = show current
   --v [all|pi|off]  Version label color | no arg = cycle
   --ps              Toggle pkg skills visibility
-  --s [txt|-c|-d]   Slogan: set text / toggle on-off / -c color / -d delete
+  --s [txt|-c [code]|-d|-quote] Slogan: set text / toggle on-off / -c slogan color (codes like --c) / -d delete / -quote random quote
   --logo [l1|l2|-d] Custom ASCII logo lines (pipe-separated) | -d = restore built-in
   --df              Reset to developer defaults
   --cl              Clear all config (for uninstall)
@@ -1180,13 +1291,38 @@ export default function (pi: ExtensionAPI) {
 							return st.sloganOn ? "Slogan: ON" : "Slogan: OFF";
 						}
 						if (flagArg === "-c") {
+							if (argv[2]) {
+								const c = argv[2].trim();
+								if (!CMAP[c]) {
+									ctx.ui.notify(`Invalid slogan color: "${c}". Available: c a r o y g w b p`, "error");
+									return null;
+								}
+								st.sloganColorKey = c;
+								st.sloganColor = true;
+								return `Slogan color: ${c} (${COLOR_NAMES[c]})`;
+							}
 							st.sloganColor = !st.sloganColor;
-							return `Slogan color: ${st.sloganColor ? "ON" : "OFF"}`;
+							return st.sloganColor ? `Slogan color: ${state.sloganColorKey} (${COLOR_NAMES[state.sloganColorKey]})` : "Slogan color: OFF";
 						}
 						if (flagArg === "-d") {
 							st.slogan = "";
 							st.sloganOn = false;
+							st.quoteMode = false;
 							return "Slogan: deleted";
+						}
+						if (flagArg === "-quote") {
+							const quote = getRandomQuote(ctx);
+							if (!quote) {
+								ctx.ui.notify(
+									"No quotes found. Create quotes.json in project root or package dir.",
+									"error",
+								);
+								return null;
+							}
+							st.slogan = quote;
+							st.sloganOn = true;
+							st.quoteMode = true;
+							return `Slogan (quote): ${quote.replace(/\n/g, " ")}`;
 						}
 						const text = flagArg.trim();
 						if (!text) {
@@ -1205,6 +1341,7 @@ export default function (pi: ExtensionAPI) {
 						}
 						st.slogan = text;
 						st.sloganOn = true;
+						st.quoteMode = false;
 						return `Slogan: ${text}`;
 					});
 					return;
@@ -1293,3 +1430,4 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 }
+
