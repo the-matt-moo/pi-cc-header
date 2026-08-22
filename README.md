@@ -72,7 +72,7 @@ The quote author name always matches the current slogan color.
 
 `/pch --s -quote` sets a random quote as the slogan in `"quote"` + author format. It also persists a `quoteMode` flag: while enabled, a **new random quote is chosen on every startup**.
 
-Quotes are loaded from a `quotes.json` file. The package ships a default set of 70 quotes; you can override it by placing your own `quotes.json` in your project root (mirroring the array-of-objects shape below):
+Quotes are loaded from a `quotes.json` file. The package ships a default set of 71 quotes; you can override it by placing your own `quotes.json` in your project root (mirroring the array-of-objects shape below):
 
 ```json
 [
@@ -106,7 +106,7 @@ This project includes these additions:
 | Custom ASCII logo | Substitute final animation frame with your own art/text | `/pch --logo` |
 | Random quote slogan | `"quote"` + centered author; auto-rotates each startup | `/pch --s -quote` |
 | Independent slogan color | Slogan (and its author) colored separately from the logo | `/pch --s -c <code>` |
-| `quotes.json` corpus | 67 default quotes, overridable per-project | — |
+| `quotes.json` corpus | 71 default quotes, overridable per-project | — |
 
 Scope notes:
 
