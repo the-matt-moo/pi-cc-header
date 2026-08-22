@@ -654,6 +654,8 @@ class PiHeader implements Component {
 		} else {
 			const model = this.ctx.model?.id ?? "Default";
 			const effort = this.pi.getThinkingLevel();
+			// ponytail: hide statusline model for local providers; opaque match, no model-name list to maintain
+			const isLocal = /lm\s*studio|ollama|llama\.local|lmstudio/i.test(model);
 			const cwd = formatCwd(this.ctx.cwd);
 			const skillText = state.showPkgSkills
 				? `${this.stats.skills}|${this.stats.pkgSkills} skills`
@@ -697,7 +699,7 @@ class PiHeader implements Component {
 					}
 				}
 			}
-			if (state.showModelLine) rows.push(muted(modelLine));
+			if (state.showModelLine && !isLocal) rows.push(muted(modelLine));
 			rows.push(muted(statsLine));
 			if (!state.sloganOn) {
 				rows.push(muted(this.stats.agents ? `${this.stats.agents} · ${cwd}` : cwd));
@@ -717,7 +719,7 @@ class PiHeader implements Component {
 
 		const lines: string[] = [];
 		for (let i = 1; i < logoLines.length; i++) {
-			lines.push(center(logoLines[i], width, 4));
+			lines.push(center(logoLines[i], width, 2));
 		}
 		for (const row of infoStrings) {
 			if (row) {
