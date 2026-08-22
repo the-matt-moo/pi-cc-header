@@ -2,13 +2,12 @@
 
 Claude Code–style startup header for [Pi](https://pi.dev). Animated Pi logo, 9-color palette, IBM stripes, Minecraft gradient, and a configurable info bar.
 
-> **Fork:** `the-matt-moo/pi-cc-header` (fork of `eriiic7z/pi-cc-header`).
-> This fork adds custom ASCII logos, random quote slogans, and an independent slogan color. See [Differences from upstream](#differences-from-upstream).
+Maintained independently. Includes custom ASCII logos, random quote slogans, and an independent slogan color.
 
 ## Install
 
 ```bash
-pi install npm:pi-cc-header
+pi install npm:@tenchi4u/pi-cc-header
 ```
 
 Takes effect on next session or `/reload`.
@@ -96,11 +95,11 @@ Quotes over 10 words are split as evenly as possible across up to 2 lines, prefe
 
 - `/pch --df` — reset all settings to defaults. Does not preserve current config.
 - `/pch --tg` — disable/re-enable. While disabled, all style commands are locked. Re-enabling takes effect next session.
-- To uninstall cleanly: `/pch --cl` first, then `pi uninstall npm:pi-cc-header`.
+- To uninstall cleanly: `/pch --cl` first, then `pi uninstall npm:@tenchi4u/pi-cc-header`.
 
-## Differences from upstream
+## Project additions
 
-This fork (`the-matt-moo/pi-cc-header`) builds on `eriiic7z/pi-cc-header`. Fork-specific additions:
+This project includes these additions:
 
 | Feature | Description | Command |
 |---------|-------------|---------|
@@ -112,5 +111,5 @@ This fork (`the-matt-moo/pi-cc-header`) builds on `eriiic7z/pi-cc-header`. Fork-
 Scope notes:
 
 - `readOnlyConfig` mode and the read-only write guards are inherited from upstream (not fork additions).
-- The fork ships a smaller, English-only README and no built-in asset images (logo art is code-generated).
+- This project ships a smaller, English-only README and no built-in asset images (logo art is code-generated).
 - The core animation, palette, stripes, Minecraft gradient, and info-bar fields are unchanged from upstream.

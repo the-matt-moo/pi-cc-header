@@ -1,6 +1,6 @@
 {
-  "name": "pi-cc-header",
-  "version": "1.3.0",
+  "name": "@tenchi4u/pi-cc-header",
+  "version": "1.0.0",
   "description": "Claude Code–style startup header for Pi — animated Pi logo with a 9-color palette, toggleable IBM stripes and Minecraft themes; configurable info bar displays version, model, resource stats, AGENTS.md marker, cwd, and a customizable slogan.",
   "type": "module",
   "keywords": [
@@ -20,10 +20,13 @@
     "open"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/eriiic7z/pi-cc-header#readme",
+  "homepage": "https://github.com/the-matt-moo/pi-cc-header#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eriiic7z/pi-cc-header.git"
+    "url": "git+https://github.com/the-matt-moo/pi-cc-header.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "extensions/pi-cc-header.ts",
@@ -35,7 +38,7 @@
     "extensions": [
       "./extensions"
     ],
-    "image": "https://raw.githubusercontent.com/eriiic7z/pi-cc-header/main/assets/thumbnail.png"
+    "image": "https://raw.githubusercontent.com/the-matt-moo/pi-cc-header/main/assets/thumbnail.png"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
