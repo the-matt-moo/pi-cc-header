@@ -815,7 +815,7 @@ export function stateFromConfig(h: Record<string, any>): CCHeaderState {
 			DEFAULT_STATE.sloganColor,
 		),
 		sloganColorKey: pick(
-			h.sloganColorCode,
+			h.sloganColorKey ?? h.sloganColorCode,
 			(v) => !!CMAP[v as string],
 			DEFAULT_STATE.sloganColorKey,
 		),
