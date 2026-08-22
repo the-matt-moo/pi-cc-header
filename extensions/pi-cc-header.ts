@@ -647,6 +647,8 @@ class PiHeader implements Component {
 		const muted = (s: string) => theme.fg("muted", s);
 
 		const logoLines = PRECOMPUTED_LOGO_FRAMES[this.frame];
+		const logoWidth = LOGO_PIXEL_WIDTH;
+		const infoMaxWidth = Math.max(0, width - logoWidth);
 
 		let infoStrings: string[];
 		if (this.cachedInfoRows && this.cachedInfoWidth === width) {
@@ -654,7 +656,6 @@ class PiHeader implements Component {
 		} else {
 			const model = this.ctx.model?.id ?? "Default";
 			const effort = this.pi.getThinkingLevel();
-			// ponytail: hide statusline model for local providers; opaque match, no model-name list to maintain
 			const isLocal = /lm\s*studio|ollama|llama\.local|lmstudio/i.test(model);
 			const cwd = formatCwd(this.ctx.cwd);
 			const skillText = state.showPkgSkills
@@ -664,8 +665,6 @@ class PiHeader implements Component {
 				this.stats.extensions.residue > 0
 					? `${this.stats.extensions.installed}(+${this.stats.extensions.residue}) extensions`
 					: `${this.stats.extensions.installed} extensions`;
-			const statsLine = `${skillText} · ${this.stats.prompts} prompts · ${extText}`;
-
 			const piText =
 				state.versionColored >= 2
 					? `\x1b[${CMAP[state.logoColorKey]}mPi v${VERSION}\x1b[39m`
@@ -675,21 +674,27 @@ class PiHeader implements Component {
 
 			const modelLine = `${model} · ${effort}${this.stats.agents ? `  |  ${this.stats.agents}` : ""}`;
 
-			const rows: string[] = [piText];
+			const rows: string[] = [
+				piText,
+				muted(skillText),
+				muted(`${this.stats.prompts} prompts`),
+				muted(extText),
+			];
+			if (state.showModelLine && !isLocal) rows.push(muted(modelLine));
 			if (state.sloganOn && state.slogan) {
+				rows.push("");
 				const sloganLines = state.slogan.split("\n");
 				for (let idx = 0; idx < sloganLines.length; idx++) {
 					const line = sloganLines[idx];
 					const sloganW = visibleWidth(line);
 					const sloganText =
-						sloganW > width
-							? truncateToWidth(line, width - 3, "") + "..."
+						sloganW > infoMaxWidth
+							? truncateToWidth(line, infoMaxWidth - 3, "") + "..."
 							: line;
 
 					const isAuthor = idx === sloganLines.length - 1 && sloganLines.length > 1;
 					if (isAuthor) {
-						// Author in slogan color, regular weight
-						rows.push(`\x1b[${CMAP[state.sloganColorKey]}m${sloganText}\x1b[39m`);
+						rows.push(`\x1b[${CMAP[state.sloganColorKey]}m~${sloganText}\x1b[39m`);
 					} else {
 						rows.push(
 							state.sloganColor
@@ -698,33 +703,45 @@ class PiHeader implements Component {
 						);
 					}
 				}
-			}
-			if (state.showModelLine && !isLocal) rows.push(muted(modelLine));
-			rows.push(muted(statsLine));
-			if (!state.sloganOn) {
+			} else {
 				rows.push(muted(this.stats.agents ? `${this.stats.agents} · ${cwd}` : cwd));
 			}
 
 			infoStrings = rows;
-			// Store in cachedInfoRows as index map for cache key reuse
 			this.cachedInfoRows = Object.fromEntries(rows.map((r, i) => [i, r]));
 			this.cachedInfoWidth = width;
 		}
 
-		const center = (text: string, w: number, offset = 2): string => {
-			const vw = visibleWidth(text);
-			const pad = Math.max(0, Math.floor((w - vw) / 2) + offset);
-			return " ".repeat(pad) + text + " ".repeat(Math.max(0, w - pad - vw));
-		};
+		// Logo rows 1..5 (y=2..6) paired with info rows 0..3 at indices 2..5
+		const LOGO_INFO_MAP: Record<number, number> = { 2: 0, 3: 1, 4: 2, 5: 3 };
+
+		// Build combined logo+info lines
+		const combinedLines: string[] = [];
+		for (let i = 1; i < logoLines.length - 1; i++) {
+			const infoIdx = LOGO_INFO_MAP[i];
+			const right = infoIdx != null ? infoStrings[infoIdx] : "";
+			combinedLines.push(padRight(logoLines[i], logoWidth) + right);
+		}
+
+		const maxLineW = Math.max(...combinedLines.map((s) => visibleWidth(s)));
+		const leftPad = Math.max(0, Math.floor((width - maxLineW) / 2));
 
 		const lines: string[] = [];
-		for (let i = 1; i < logoLines.length; i++) {
-			lines.push(center(logoLines[i], width, 2));
+		for (const cl of combinedLines) {
+			lines.push(" ".repeat(leftPad) + truncateToWidth(cl, width - leftPad, ""));
 		}
-		for (const row of infoStrings) {
-			if (row) {
-				lines.push(center(truncateToWidth(row, width, ""), width, 0));
-			}
+
+		// Remaining info rows (model, slogan, cwd) centered independently
+		const center = (text: string, w: number): string => {
+			const vw = visibleWidth(text);
+			const pad = Math.max(0, Math.floor((w - vw) / 2));
+			return " ".repeat(pad) + text + " ".repeat(Math.max(0, w - pad - vw));
+		};
+		for (let i = 4; i < infoStrings.length; i++) {
+			const row = infoStrings[i];
+			lines.push(
+				row === "" ? "" : center(truncateToWidth(row, width, ""), width),
+			);
 		}
 		return lines;
 	}
