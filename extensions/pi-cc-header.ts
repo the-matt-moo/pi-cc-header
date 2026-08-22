@@ -18,7 +18,7 @@ import {
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
-/* ── 类型 ── */
+/* ── Types ── */
 interface CCHeaderConfig extends Record<string, any> {
 	readOnlyConfig?: boolean;
 }
@@ -42,15 +42,16 @@ interface CCHeaderState {
 	sloganOn: boolean;
 	sloganColor: boolean;
 	disabled: boolean;
+	showModelLine: boolean; // NEW: toggle model/thinking line
+	customLogoLines: string[] | null;
 }
 
-/* ── 常量 ── */
+/* ── Constants ── */
 const SPEEDS = [25, 50, 75, 100] as const;
 const LOGO_COLS = 8;
 const LOGO_ROWS = 7;
-const LOGO_PIXEL_WIDTH = 14; // 8×2 双宽字符，含左右 margin
+const LOGO_PIXEL_WIDTH = 14;
 export const MAX_SLOGAN_LENGTH = 85;
-// sync: COLOR_NAMES 与 CMAP/GMAP 共享同一组颜色键，新增颜色需同步三处。
 const COLOR_NAMES: Record<string, string> = {
 	a: "anthropic",
 	c: "clawd",
@@ -73,6 +74,8 @@ const DEFAULT_STATE: CCHeaderState = {
 	sloganOn: true,
 	sloganColor: true,
 	disabled: false,
+	showModelLine: true, // NEW: default ON
+	customLogoLines: null,
 };
 const CMAP: Record<string, string> = {
 	a: "38;2;217;119;87",
@@ -85,7 +88,6 @@ const CMAP: Record<string, string> = {
 	p: "38;5;129",
 	c: "38;2;251;73;52",
 };
-// 24-bit RGB gradient: [light→dark] for each color
 const GMAP: Record<string, string[]> = {
 	a: ["38;2;217;119;87", "38;2;200;100;70", "38;2;170;80;55", "38;2;130;60;40"],
 	r: ["38;2;255;80;80", "38;2;220;40;40", "38;2;180;20;20", "38;2;140;10;10"],
@@ -122,7 +124,6 @@ const GMAP: Record<string, string[]> = {
 	],
 	c: ["38;2;251;73;52", "38;2;220;60;40", "38;2;190;45;30", "38;2;155;30;20"],
 };
-// 显式层级索引 → 消除 cg(+color[1]-1) 的隐式命名依赖
 const GRADIENT_LEVEL: Record<string, number> = {
 	l1: 0,
 	l2: 1,
@@ -134,21 +135,21 @@ const GRADIENT_LEVEL: Record<string, number> = {
 	s4: 3,
 };
 
-/* ── 运行时状态（单一 state 对象，消除 11 个模块级 let）── */
+/* ── Runtime state ── */
 let state: CCHeaderState = { ...DEFAULT_STATE };
-let framesDirty = true; // 仅颜色/渐变/横线变化时置脏
+let framesDirty = true;
 
-/* ── Pi 官方 Logo 动画（提取自 pi.dev/install.sh）── */
+/* ── Pi logo animation ── */
 type LogoColor =
 	| "panel"
 	| "cyan"
 	| "red"
 	| "green"
 	| "orange"
-	| "white"
 	| "flash"
 	| "logo"
 	| "logoStripe"
+	| "white"
 	| "l1"
 	| "l2"
 	| "l3"
@@ -236,7 +237,7 @@ export const colorCell = (color: LogoColor): string => {
 			return "  ";
 	}
 };
-// perf: 坐标字符串预解析为 Set/[number,number][]，消除热路径 split/map/Number 调用
+
 const WHITE_CELLS = new Set([
 	"3,2",
 	"3,3",
@@ -340,6 +341,9 @@ export function logoCellColor(
 }
 
 function piLogoFrame(frameIndex: number): string[] {
+	if (frameIndex === LAST_FRAME_INDEX && state.customLogoLines) {
+		return state.customLogoLines;
+	}
 	const frame = LOGO_FRAMES[frameIndex];
 	const lines: string[] = [];
 	for (let y = 1; y <= LOGO_ROWS; y++) {
@@ -360,7 +364,7 @@ function recomputeFrames(): void {
 	framesDirty = false;
 }
 
-/* ── 工具函数 ── */
+/* ── Utilities ── */
 export function formatCwd(cwd: string): string {
 	const home = homedir();
 	return home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
@@ -391,7 +395,7 @@ function getRuntimePaths(cwd?: string) {
 	return buildRuntimePaths(getAgentDir(), cwd);
 }
 
-/* ── 各项统计（tech-debt: 同步遍历 agentDir/npm/node_modules，包多时可能卡顿。cachedStats 保证每会话仅运行一次，后续可考虑 setImmediate 分片或 worker）── */
+/* ── Stats ── */
 function computeStats(ctx: ExtensionContext) {
 	const home = homedir();
 	const paths = getRuntimePaths(ctx.cwd);
@@ -523,18 +527,16 @@ function computeStats(ctx: ExtensionContext) {
 	};
 }
 
-/* ── computeStats 缓存 ── */
 let cachedStats: ReturnType<typeof computeStats> | null = null;
 function invalidateStats(): void {
 	cachedStats = null;
 }
 
-/* ── 组件：启动头部 ── */
+/* ── Component: startup header ── */
 class PiHeader implements Component {
 	private frame = 0;
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private readonly stats: ReturnType<typeof computeStats>;
-	// 性能: info 面板在动画播放期间不变，缓存右侧字符串，仅在终端宽度变化时重算
 	private cachedInfoRows: Record<number, string> | null = null;
 	private cachedInfoWidth = -1;
 
@@ -554,7 +556,6 @@ class PiHeader implements Component {
 				if (this.frame < LAST_FRAME_INDEX) {
 					this.frame++;
 					this.tui.requestRender();
-					// 递归 setTimeout：每次动态读取 state.logoInterval，/hsp 热生效
 					this.timer = setTimeout(tick, state.logoInterval);
 				} else {
 					this.timer = null;
@@ -571,12 +572,10 @@ class PiHeader implements Component {
 		const muted = (s: string) => theme.fg("muted", s);
 
 		const logoLines = PRECOMPUTED_LOGO_FRAMES[this.frame];
-		const logoWidth = LOGO_PIXEL_WIDTH;
-		const infoMaxWidth = Math.max(0, width - LOGO_PIXEL_WIDTH);
-		// 性能: info 面板缓存——动画帧仅做拼接，不重算 padRight/truncateToWidth/visibleWidth
-		let infoRows: Record<number, string>;
+
+		let infoStrings: string[];
 		if (this.cachedInfoRows && this.cachedInfoWidth === width) {
-			infoRows = this.cachedInfoRows;
+			infoStrings = Object.values(this.cachedInfoRows);
 		} else {
 			const model = this.ctx.model?.id ?? "Default";
 			const effort = this.pi.getThinkingLevel();
@@ -596,44 +595,52 @@ class PiHeader implements Component {
 					: state.versionColored >= 1
 						? `\x1b[${CMAP[state.logoColorKey]}mPi\x1b[39m ${muted(`v${VERSION}`)}`
 						: muted(`Pi v${VERSION}`);
+
 			const modelLine = `${model} · ${effort}${this.stats.agents ? `  |  ${this.stats.agents}` : ""}`;
 
 			const sloganW = visibleWidth(state.slogan);
 			const sloganText =
-				sloganW > infoMaxWidth
-					? truncateToWidth(state.slogan, infoMaxWidth - 3, "") + "..."
+				sloganW > width
+					? truncateToWidth(state.slogan, width - 3, "") + "..."
 					: state.slogan;
 
-			infoRows = state.sloganOn
-				? {
-						2: piText,
-						3: state.sloganColor
-							? `\x1b[1m\x1b[${CMAP[state.logoColorKey]}m${sloganText}\x1b[39m\x1b[22m`
-							: muted(`\x1b[1m${sloganText}\x1b[22m`),
-						4: muted(modelLine),
-						5: muted(statsLine),
-					}
-				: {
-						2: piText,
-						3: muted(`${model} · ${effort}`),
-						4: muted(statsLine),
-						5: muted(this.stats.agents ? `${this.stats.agents} · ${cwd}` : cwd),
-					};
-			this.cachedInfoRows = infoRows;
+			const rows: string[] = [piText];
+			if (state.sloganOn && state.slogan) {
+				rows.push(
+					state.sloganColor
+						? `\x1b[1m\x1b[${CMAP[state.logoColorKey]}m${sloganText}\x1b[39m\x1b[22m`
+						: muted(`\x1b[1m${sloganText}\x1b[22m`),
+				);
+			}
+			if (state.showModelLine) rows.push(muted(modelLine));
+			rows.push(muted(statsLine));
+			if (!state.sloganOn) {
+				rows.push(muted(this.stats.agents ? `${this.stats.agents} · ${cwd}` : cwd));
+			}
+
+			infoStrings = rows;
+			// Store in cachedInfoRows as index map for cache key reuse
+			this.cachedInfoRows = Object.fromEntries(rows.map((r, i) => [i, r]));
 			this.cachedInfoWidth = width;
 		}
 
+		const center = (text: string, w: number, offset = 2): string => {
+			const vw = visibleWidth(text);
+			const pad = Math.max(0, Math.floor((w - vw) / 2) + offset);
+			return " ".repeat(pad) + text + " ".repeat(Math.max(0, w - pad - vw));
+		};
+
 		const lines: string[] = [];
 		for (let i = 1; i < logoLines.length; i++) {
-			const right =
-				infoRows[i] != null ? padRight(infoRows[i], infoMaxWidth) : "";
-			lines.push(padRight(logoLines[i], logoWidth) + right);
+			lines.push(center(logoLines[i], width, 4));
 		}
-		return lines.map((l) => padRight(truncateToWidth(l, width, ""), width));
+		for (const row of infoStrings) {
+			if (row) lines.push(center(truncateToWidth(row, width, ""), width));
+		}
+		return lines;
 	}
 
 	invalidate(): void {}
-	/** 触发重渲染但不重启动画，供 /hv 等仅改信息栏的命令使用 */
 	reapply(): void {
 		this.cachedInfoRows = null;
 		this.tui.requestRender();
@@ -643,7 +650,7 @@ class PiHeader implements Component {
 	}
 }
 
-/* ── 挂载 ── */
+/* ── Mount ── */
 let active: PiHeader | undefined;
 let isResuming = false;
 
@@ -666,8 +673,7 @@ function apply(
 	});
 }
 
-/* ── 状态 ⇄ 配置序列化 ── */
-// dedup: pick 工具函数消除 9 行重复的类型守卫 + 默认值模式
+/* ── State <-> config serialization ── */
 export const pick = <T>(
 	val: unknown,
 	guard: (v: unknown) => boolean,
@@ -726,6 +732,16 @@ export function stateFromConfig(h: Record<string, any>): CCHeaderState {
 			(v) => typeof v === "boolean",
 			DEFAULT_STATE.disabled,
 		),
+		showModelLine: pick(
+			h.showModelLine,
+			(v) => typeof v === "boolean",
+			DEFAULT_STATE.showModelLine,
+		),
+		customLogoLines: pick(
+			h.customLogo,
+			(v) => Array.isArray(v) && v.every((l) => typeof l === "string"),
+			DEFAULT_STATE.customLogoLines,
+		),
 	};
 }
 
@@ -741,6 +757,8 @@ function stateToConfig(): Record<string, any> {
 		sloganOn: state.sloganOn,
 		sloganColor: state.sloganColor,
 		disabled: state.disabled,
+		showModelLine: state.showModelLine,
+		customLogo: state.customLogoLines,
 	};
 }
 
@@ -768,7 +786,7 @@ function isReadonlyWriteError(error: unknown): boolean {
 	);
 }
 
-/* ── 统一配置更新（合并 modifyConfig + directApply）── */
+/* ── Config update ── */
 function updateState(
 	ctx: ExtensionContext,
 	applyAndPersist: (msg: string) => void,
@@ -777,7 +795,7 @@ function updateState(
 ): void {
 	if (state.disabled) {
 		ctx.ui.notify(
-			"Command unavailable: pi-cc-header disabled. Use /htg to enable.",
+			"Command unavailable: pi-cc-header disabled. Use /pch --tg to enable.",
 			"info",
 		);
 		return;
@@ -788,9 +806,8 @@ function updateState(
 	const prevStripe = state.stripeEnabled;
 
 	const msg = updater(state);
-	if (msg === null) return; // null = 中止（已自行 notify 错误）
+	if (msg === null) return;
 
-	// 脏标记：仅颜色/渐变/横线变化需要重算帧
 	if (
 		(!skipFrames && state.logoColorKey !== prevColor) ||
 		state.gradientOn !== prevGrad ||
@@ -800,7 +817,6 @@ function updateState(
 	}
 	if (framesDirty) recomputeFrames();
 
-	// design: 持久化 + 重挂载复用 reapply 序列
 	applyAndPersist(msg);
 }
 
@@ -848,15 +864,13 @@ function readSettings(settingsPath: string): SettingsFile | null {
 	try {
 		return parseSettingsFile(settingsPath);
 	} catch {
-		// safety: 解析失败时备份原文件，防止后续写入覆盖用户数据
 		backupCorruptedSettings(settingsPath);
-		// restore a minimal default so the file always exists and the extension can recover
 		restoreDefaultSettingsFile(settingsPath);
 		return null;
 	}
 }
 
-/* ── 入口 ── */
+/* ── Entry ── */
 export default function (pi: ExtensionAPI) {
 	const settingsPath = getRuntimePaths().settingsPath;
 
@@ -919,9 +933,6 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.notify(withPersistenceNote(msg, s, persistResult), "info");
 	};
 
-	// design: 复用 read→set ccHeader→save→dispose→apply→notify 序列
-	// （/htg /hv /hdf 等不走 updateState 的命令手动调 reapply，走 updateState 的命令在回调中传 reapply）
-
 	pi.on("session_before_switch", (event, _ctx) => {
 		if (event.reason === "resume") {
 			isResuming = true;
@@ -940,12 +951,10 @@ export default function (pi: ExtensionAPI) {
 		const h = getCCHeaderConfig(s);
 		state = stateFromConfig(h);
 		if (state.disabled) return;
-		// design: /hrl 已移除（pi 当前版本 ctx.ui.reload() 不可用），启动时无条件抑制资源列表
 		configStartupEnabled(s);
 		invalidateStats();
 		framesDirty = true;
 		recomputeFrames();
-		// Skip animation on reload, resume, and pi -r/--resume/--session to avoid screen flickering
 		const skipAnimation =
 			event.reason === "reload" ||
 			isResuming ||
@@ -954,13 +963,14 @@ export default function (pi: ExtensionAPI) {
 					process.argv.includes("--resume") ||
 					process.argv.includes("--session")));
 		if (isResuming) isResuming = false;
-		// setTimeout(0): 延迟到 TUI 管道就绪后再挂载 header，避免与其他初始化竞态
 		setTimeout(() => apply(pi, ctx, "none", skipAnimation), 0);
 	});
 
-	pi.registerCommand("htg", {
-		description: "Toggle pi-cc-header ENABLED/DISABLED",
-		handler: async (_args, ctx) => {
+	/* ── /pch command ── */
+	pi.registerCommand("pch", {
+		description:
+			"pi-cc-header control: --tg (toggle enable/disable), --c <color> (logo color), --i (IBM stripes), --m (Minecraft), --sp <ms> (speed), --v [all|pi|off] (version color), --ps (pkg skills), --s [text|-c|-d] (slogan), --df (defaults), --cl (clear config), --ml (toggle model/thinking line), --h (help)",
+		handler: async (args, ctx) => {
 			const s = readSettings(settingsPath);
 			if (!s) {
 				ctx.ui.notify(
@@ -969,293 +979,317 @@ export default function (pi: ExtensionAPI) {
 				);
 				return;
 			}
-			const h = getCCHeaderConfig(s);
-			if (state.disabled) {
-				state.disabled = false;
-				h.disabled = false;
-				s.ccHeader = h;
-				invalidateStats();
-				configStartupEnabled(s);
-				reapply(
-					pi,
-					ctx,
-					s,
-					configWritesEnabled(s)
-						? "pi-cc-header: ENABLED"
-						: "pi-cc-header: ENABLED for this session only",
-				);
-			} else {
-				state.disabled = true;
-				h.disabled = true;
-				active?.dispose();
-				active = undefined;
-				ctx.ui.setHeader(undefined);
-				if (configWritesEnabled(s)) {
-					s.ccHeader = h;
-					s.quietStartup = false;
-					s.clearOnStart = false;
-					const persisted = saveSettings(s);
-					ctx.ui.notify(
-						withPersistenceNote(
-							"pi-cc-header: DISABLED. Takes effect next session. /htg to re-enable.",
-							s,
-							persisted,
-						),
-						"info",
-					);
-				} else {
-					ctx.ui.notify(
-						"pi-cc-header: DISABLED for this session only. Config writes are disabled; /htg to re-enable.",
-						"info",
-					);
-				}
-			}
-		},
-	});
 
-	pi.registerCommand("hi", {
-		description: "Toggle IBM-style ON/OFF",
-		handler: async (_args, ctx) => {
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					s.stripeEnabled = !s.stripeEnabled;
-					return `IBM-style: ${s.stripeEnabled ? "ON" : "OFF"}`;
-				},
-			);
-		},
-	});
-
-	pi.registerCommand("hc", {
-		description:
-			"Header color: <code> = set (c a r o y g w b p); no args = show color key",
-		handler: async (args, ctx) => {
-			if (!args) {
+			// Parse flags
+			const argv = args?.trim().split(/\s+/) ?? [];
+			if (argv.length === 0 || argv[0] === "--h" || argv[0] === "-h") {
 				ctx.ui.notify(
-					`Header color: ${state.logoColorKey} (${COLOR_NAMES[state.logoColorKey]}). Available: ${Object.entries(
-						COLOR_NAMES,
-					)
-						.map(([k, n]) => `${k}=${n}`)
-						.join(" ")}`,
+					`pch flags:
+  --tg              Toggle header enable/disable (next session)
+  --c <code>        Logo color (c/a/r/o/y/g/w/b/p) | no arg = show current
+  --i               Toggle IBM stripes
+  --m               Toggle Minecraft gradient
+  --sp [ms]         Animation speed (25/50/75/100) | no arg = show current
+  --v [all|pi|off]  Version label color | no arg = cycle
+  --ps              Toggle pkg skills visibility
+  --s [txt|-c|-d]   Slogan: set text / toggle on-off / -c color / -d delete
+  --logo [l1|l2|-d] Custom ASCII logo lines (pipe-separated) | -d = restore built-in
+  --df              Reset to developer defaults
+  --cl              Clear all config (for uninstall)
+  --ml              Toggle model/thinking line
+  --h               Show this help`,
 					"info",
 				);
 				return;
 			}
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					if (!CMAP[args]) {
-						ctx.ui.notify(
-							`Invalid color: "${args}". Available: ${Object.keys(CMAP).join(" ")}`,
-							"error",
-						);
-						return null;
-					}
-					s.logoColorKey = args;
-					return `Color: ${args}`;
-				},
-			);
-		},
-	});
 
-	pi.registerCommand("hv", {
-		description: "Version label color: no args = cycle; <all|pi|off> = set",
-		handler: async (args, ctx) => {
-			if (args) {
-				const v = args.trim();
-				if (!["all", "pi", "off"].includes(v)) {
-					ctx.ui.notify(
-						`Invalid value: "${v}". Available: all, pi, off.`,
-						"error",
-					);
-					return;
-				}
+			// Find first flag
+			const flag = argv[0];
+			const flagArg = argv[1];
+
+			const doUpdate = (
+				updater: (st: CCHeaderState) => string | null,
+				skipFrames = false,
+			) => {
 				updateState(
 					ctx,
 					(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-					(s) => {
-						s.versionColored = v === "all" ? 2 : v === "pi" ? 1 : 0;
-						return `Version label color: ${["OFF", "Pi only", "Pi+ver"][s.versionColored]}`;
-					},
-					true, // skipFrames: /hv 不改颜色，不需重算帧
+					updater,
+					skipFrames,
 				);
-				return;
-			}
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					s.versionColored = (s.versionColored + 1) % 3;
-					return `Version label color: ${["OFF", "Pi only", "Pi+ver"][s.versionColored]}`;
-				},
-				true, // skipFrames: /hv 不改颜色，不需重算帧
-			);
-			return;
-		},
-	});
+			};
 
-	pi.registerCommand("hm", {
-		description: "Toggle Minecraft-style ON/OFF",
-		handler: async (_args, ctx) => {
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					s.gradientOn = !s.gradientOn;
-					return `Minecraft-style: ${s.gradientOn ? "ON" : "OFF"}`;
-				},
-			);
-		},
-	});
-
-	pi.registerCommand("hdf", {
-		description: "Reset pi-cc-header to developer defaults (overwrites config)",
-		handler: async (_args, ctx) => {
-			state = { ...DEFAULT_STATE };
-			framesDirty = true;
-			recomputeFrames();
-			invalidateStats();
-			const s = readSettings(settingsPath);
-			if (!s) {
-				ctx.ui.notify(
-					"pi-cc-header: settings.json is corrupted or unreadable. A backup has been created.",
-					"error",
-				);
-				return;
-			}
-			reapply(pi, ctx, s, "Reset to developer defaults");
-		},
-	});
-
-	pi.registerCommand("hsp", {
-		description:
-			"Animation speed: no args = show; <number> = set (25 50 75 100)",
-		handler: async (args, ctx) => {
-			if (!args) {
-				ctx.ui.notify(
-					`Animation speed: ${state.logoInterval}ms. Available: ${SPEEDS.join(" ")}`,
-					"info",
-				);
-				return;
-			}
-			const n = Number(args);
-			if (!(SPEEDS as readonly number[]).includes(n)) {
-				ctx.ui.notify(
-					`Invalid speed: "${n}". Available: ${SPEEDS.join(" ")}`,
-					"error",
-				);
-				return;
-			}
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					s.logoInterval = n as (typeof SPEEDS)[number];
-					return `Animation speed: ${s.logoInterval}ms`;
-				},
-			);
-		},
-	});
-
-	pi.registerCommand("hs", {
-		description:
-			"Slogan: no args = on/off; <text> = set; -c = toggle color; -d = delete",
-		handler: async (args, ctx) => {
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					if (!args) {
-						if (!s.slogan) {
+			switch (flag) {
+				case "--tg": {
+					const h = getCCHeaderConfig(s);
+					if (state.disabled) {
+						state.disabled = false;
+						h.disabled = false;
+						s.ccHeader = h;
+						invalidateStats();
+						configStartupEnabled(s);
+						reapply(
+							pi,
+							ctx,
+							s,
+							configWritesEnabled(s)
+								? "pi-cc-header: ENABLED"
+								: "pi-cc-header: ENABLED for this session only",
+						);
+					} else {
+						state.disabled = true;
+						h.disabled = true;
+						active?.dispose();
+						active = undefined;
+						ctx.ui.setHeader(undefined);
+						if (configWritesEnabled(s)) {
+							s.ccHeader = h;
+							s.quietStartup = false;
+							s.clearOnStart = false;
+							const saved = saveSettings(s);
+							const persistResult: PersistResult = saved ? "saved" : "failed";
 							ctx.ui.notify(
-								"Command unavailable: no slogan set. Use /hs <text> to set one.",
+								withPersistenceNote(
+									"pi-cc-header: DISABLED. Takes effect next session. /pch --tg to re-enable.",
+									s,
+									persistResult,
+								),
+								"info",
+							);
+						} else {
+							ctx.ui.notify(
+								"pi-cc-header: DISABLED for this session only. Config writes are disabled; /pch --tg to re-enable.",
+								"info",
+							);
+						}
+					}
+					return;
+				}
+
+				case "--c": {
+					if (!flagArg) {
+						ctx.ui.notify(
+							`Header color: ${state.logoColorKey} (${COLOR_NAMES[state.logoColorKey]}). Available: ${Object.entries(COLOR_NAMES)
+								.map(([k, n]) => `${k}=${n}`)
+								.join(" ")}`,
+							"info",
+						);
+						return;
+					}
+					doUpdate((st) => {
+						if (!CMAP[flagArg]) {
+							ctx.ui.notify(
+								`Invalid color: "${flagArg}". Available: ${Object.keys(CMAP).join(" ")}`,
 								"error",
 							);
 							return null;
 						}
-						s.sloganOn = !s.sloganOn;
-						return s.sloganOn ? "Slogan: ON" : "Slogan: OFF";
-					}
-					if (args === "-c") {
-						s.sloganColor = !s.sloganColor;
-						return `Slogan color: ${s.sloganColor ? "ON" : "OFF"}`;
-					}
-					if (args === "-d") {
-						s.slogan = "";
-						s.sloganOn = false;
-						return "Slogan: deleted";
-					}
-					const text = args.trim();
-					if (!text) {
+						st.logoColorKey = flagArg;
+						return `Color: ${flagArg}`;
+					});
+					return;
+				}
+
+				case "--i": {
+					doUpdate((st) => {
+						st.stripeEnabled = !st.stripeEnabled;
+						return `IBM-style: ${st.stripeEnabled ? "ON" : "OFF"}`;
+					});
+					return;
+				}
+
+				case "--m": {
+					doUpdate((st) => {
+						st.gradientOn = !st.gradientOn;
+						return `Minecraft-style: ${st.gradientOn ? "ON" : "OFF"}`;
+					});
+					return;
+				}
+
+				case "--sp": {
+					if (!flagArg) {
 						ctx.ui.notify(
-							`Invalid slogan: "". Slogan must be between 1 and ${MAX_SLOGAN_LENGTH} characters.`,
+							`Animation speed: ${state.logoInterval}ms. Available: ${SPEEDS.join(" ")}`,
+							"info",
+						);
+						return;
+					}
+					const n = Number(flagArg);
+					if (!(SPEEDS as readonly number[]).includes(n)) {
+						ctx.ui.notify(
+							`Invalid speed: "${n}". Available: ${SPEEDS.join(" ")}`,
 							"error",
 						);
-						return null;
+						return;
 					}
-					if (text.length > MAX_SLOGAN_LENGTH) {
+					doUpdate((st) => {
+						st.logoInterval = n as (typeof SPEEDS)[number];
+						return `Animation speed: ${st.logoInterval}ms`;
+					});
+					return;
+				}
+
+				case "--v": {
+					if (flagArg) {
+						const v = flagArg.trim();
+						if (!["all", "pi", "off"].includes(v)) {
+							ctx.ui.notify(
+								`Invalid value: "${v}". Available: all, pi, off.`,
+								"error",
+							);
+							return;
+						}
+						doUpdate(
+							(st) => {
+								st.versionColored = v === "all" ? 2 : v === "pi" ? 1 : 0;
+								return `Version label color: ${["OFF", "Pi only", "Pi+ver"][st.versionColored]}`;
+							},
+							true,
+						);
+						return;
+					}
+					doUpdate(
+						(st) => {
+							st.versionColored = (st.versionColored + 1) % 3;
+							return `Version label color: ${["OFF", "Pi only", "Pi+ver"][st.versionColored]}`;
+						},
+						true,
+					);
+					return;
+				}
+
+				case "--ps": {
+					doUpdate((st) => {
+						st.showPkgSkills = !st.showPkgSkills;
+						return `Pkg skills: ${st.showPkgSkills ? "VISIBLE" : "HIDDEN"}`;
+					});
+					return;
+				}
+
+				case "--s": {
+					doUpdate((st) => {
+						if (!flagArg) {
+							if (!st.slogan) {
+								ctx.ui.notify(
+									"Command unavailable: no slogan set. Use /pch --s <text> to set one.",
+									"error",
+								);
+								return null;
+							}
+							st.sloganOn = !st.sloganOn;
+							return st.sloganOn ? "Slogan: ON" : "Slogan: OFF";
+						}
+						if (flagArg === "-c") {
+							st.sloganColor = !st.sloganColor;
+							return `Slogan color: ${st.sloganColor ? "ON" : "OFF"}`;
+						}
+						if (flagArg === "-d") {
+							st.slogan = "";
+							st.sloganOn = false;
+							return "Slogan: deleted";
+						}
+						const text = flagArg.trim();
+						if (!text) {
+							ctx.ui.notify(
+								`Invalid slogan: "". Slogan must be between 1 and ${MAX_SLOGAN_LENGTH} characters.`,
+								"error",
+							);
+							return null;
+						}
+						if (text.length > MAX_SLOGAN_LENGTH) {
+							ctx.ui.notify(
+								`Invalid slogan: "${text}". Slogan must be between 1 and ${MAX_SLOGAN_LENGTH} characters.`,
+								"error",
+							);
+							return null;
+						}
+						st.slogan = text;
+						st.sloganOn = true;
+						return `Slogan: ${text}`;
+					});
+					return;
+				}
+
+				case "--df": {
+					state = { ...DEFAULT_STATE };
+					framesDirty = true;
+					recomputeFrames();
+					invalidateStats();
+					const s2 = readSettings(settingsPath);
+					if (!s2) {
 						ctx.ui.notify(
-							`Invalid slogan: "${text}". Slogan must be between 1 and ${MAX_SLOGAN_LENGTH} characters.`,
+							"pi-cc-header: settings.json is corrupted or unreadable. A backup has been created.",
 							"error",
 						);
-						return null;
+						return;
 					}
-					s.slogan = text;
-					s.sloganOn = true;
-					return `Slogan: ${text}`;
-				},
-			);
-		},
-	});
+					reapply(pi, ctx, s2, "Reset to developer defaults");
+					return;
+				}
 
-	pi.registerCommand("hps", {
-		description: "Toggle pkg skills VISIBLE/HIDDEN",
-		handler: async (_args, ctx) => {
-			updateState(
-				ctx,
-				(msg) => reapply(pi, ctx, readSettings(settingsPath), msg),
-				(s) => {
-					s.showPkgSkills = !s.showPkgSkills;
-					return `Pkg skills: ${s.showPkgSkills ? "VISIBLE" : "HIDDEN"}`;
-				},
-			);
-		},
-	});
+				case "--cl": {
+					if (!configWritesEnabled(s)) {
+						ctx.ui.notify(
+							"pi-cc-header: /pch --cl is unavailable when ccHeader.readOnlyConfig=true. Remove the config declaratively, then uninstall the package.",
+							"info",
+						);
+						return;
+					}
+					delete s.ccHeader;
+					delete s.quietStartup;
+					delete s.clearOnStart;
+					const persisted = saveSettings(s);
+					state = { ...DEFAULT_STATE, disabled: true };
+					active?.dispose();
+					active = undefined;
+					ctx.ui.setHeader(undefined);
+					ctx.ui.notify(
+						persisted
+							? "pi-cc-header Config: cleared. You can now uninstall the package."
+							: "pi-cc-header Config: cleared for this session only. Could not save settings.json.",
+						"info",
+					);
+					return;
+				}
 
-	pi.registerCommand("hcl", {
-		description: "Clear all pi-cc-header config for clean uninstall",
-		handler: async (_args, ctx) => {
-			const s = readSettings(settingsPath);
-			if (!s) {
-				ctx.ui.notify(
-					"pi-cc-header: settings.json is corrupted or unreadable. A backup has been created.",
-					"error",
-				);
-				return;
+				case "--ml": {
+					doUpdate((st) => {
+						st.showModelLine = !st.showModelLine;
+						return `Model/thinking line: ${st.showModelLine ? "ON" : "OFF"}`;
+					}, true);
+					return;
+				}
+
+				case "--logo": {
+					// /pch --logo -d            → restore built-in Pi logo
+					// /pch --logo line1 | line2  → set custom ASCII art (pipe-separated lines)
+					if (flagArg === "-d") {
+						doUpdate((st) => { st.customLogoLines = null; return "Logo: restored to built-in"; });
+						return;
+					}
+					const raw = argv.slice(1).join(" ");
+					if (!raw.trim()) {
+						ctx.ui.notify(
+							state.customLogoLines
+								? `Custom logo: ${state.customLogoLines.length} lines set. /pch --logo -d to restore built-in.`
+								: "No custom logo set. Use /pch --logo line1 | line2 | ... to set one.",
+							"info",
+						);
+						return;
+					}
+					const lines = raw.split("|").map((l) => l.trim());
+					doUpdate((st) => { st.customLogoLines = lines; return `Logo: ${lines.length}-line custom ASCII set`; });
+					return;
+				}
+
+				default: {
+					ctx.ui.notify(
+						`Unknown flag: ${flag}. Use /pch --h for help.`,
+						"error",
+					);
+					return;
+				}
 			}
-			if (!configWritesEnabled(s)) {
-				ctx.ui.notify(
-					"pi-cc-header: /hcl is unavailable when ccHeader.readOnlyConfig=true. Remove the config declaratively, then uninstall the package.",
-					"info",
-				);
-				return;
-			}
-			delete s.ccHeader;
-			delete s.quietStartup;
-			delete s.clearOnStart;
-			const persisted = saveSettings(s);
-			state = { ...DEFAULT_STATE, disabled: true };
-			active?.dispose();
-			active = undefined;
-			ctx.ui.setHeader(undefined);
-			ctx.ui.notify(
-				persisted
-					? "pi-cc-header Config: cleared. You can now uninstall the package."
-					: "pi-cc-header Config: cleared for this session only. Could not save settings.json.",
-				"info",
-			);
 		},
 	});
 }

@@ -4,6 +4,20 @@
 
 All notable changes to pi-cc-header.
 
+## v1.2.0 (2026-08-21)
+
+### Changed
+
+- Consolidated all individual slash commands (`/hc`, `/hi`, `/hm`, `/hv`, `/hsp`, `/hs`, `/hps`, `/hdf`, `/htg`, `/hcl`) into a single `/pch` command with flags (`--c`, `--i`, `--m`, `--v`, `--sp`, `--s`, `--ps`, `--df`, `--tg`, `--cl`).
+- Added `--ml` flag to toggle model name/thinking level line visibility in the header.
+- Added `--h` flag for help.
+- Updated command references in README and documentation.
+
+### Migration
+
+- Old commands (`/hc`, `/hi`, etc.) no longer work. Use `/pch --c`, `/pch --i`, etc. instead.
+- Config key `showModelLine` added to settings (defaults to `true`).
+
 ## v1.1.0 (2026-08-21)
 
 ### Added

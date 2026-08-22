@@ -37,7 +37,8 @@
     "image": "https://raw.githubusercontent.com/eriiic7z/pi-cc-header/main/assets/thumbnail.png"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1"
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "test": "npx tsx --test test/*.test.ts"
