@@ -95,8 +95,13 @@ describe("stateFromConfig", () => {
 		assert.equal(s.logoInterval, 100);
 	});
 
-	it("rejects invalid speed (falls back)", () => {
-		const s = stateFromConfig({ speed: 30 });
+	it("accepts arbitrary positive speed", () => {
+		const s = stateFromConfig({ speed: 35 });
+		assert.equal(s.logoInterval, 35);
+	});
+
+	it("rejects non-positive speed (falls back)", () => {
+		const s = stateFromConfig({ speed: -10 });
 		assert.equal(s.logoInterval, 50);
 	});
 

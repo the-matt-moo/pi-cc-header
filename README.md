@@ -22,7 +22,7 @@ Visual changes still apply per-session but won't be persisted.
 
 ## Features
 
-- 14-frame Pi logo animation, speed 25/50/75/100 ms
+- 14-frame Pi logo animation, speed any positive ms (presets: 25/30/35/40/45/50/75/100)
 - 9-color palette: Anthropic orange, Clawd red, and more
 - IBM-style horizontal stripes
 - Minecraft-style pixel theme with 4-level 24-bit gradient
@@ -42,7 +42,7 @@ All flags under `/pch`:
 | `/pch --c [code]` | Logo/header color (`c/a/r/o/y/g/w/b/p`); no arg = show current | Immediate |
 | `/pch --i` | Toggle IBM stripes | Immediate |
 | `/pch --m` | Toggle Minecraft gradient | Immediate |
-| `/pch --sp [ms]` | Speed (`25/50/75/100`); no arg = show current | Immediate |
+| `/pch --sp [ms]` | Speed (any positive number; presets `25/30/35/40/45/50/75/100`); no arg = show current | Immediate |
 | `/pch --v [all\|pi\|off]` | Version label color; no arg = cycle | Immediate |
 | `/pch --ps` | Toggle pkg skills count | Immediate |
 | `/pch --s [text]` | Set slogan to literal text | Immediate |

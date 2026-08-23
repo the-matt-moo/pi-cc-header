@@ -49,7 +49,8 @@ interface CCHeaderState {
 }
 
 /* ── Constants ── */
-const SPEEDS = [25, 50, 75, 100] as const;
+const SPEEDS = [25, 30, 35, 40, 45, 50, 75, 100] as const;
+// Any positive number is accepted as animation speed; SPEEDS is preset display only.
 const LOGO_COLS = 8;
 const LOGO_ROWS = 7;
 const LOGO_PIXEL_WIDTH = 14;
@@ -71,7 +72,7 @@ const DEFAULT_STATE: CCHeaderState = {
 	gradientOn: true,
 	stripeEnabled: true,
 	showPkgSkills: false,
-	logoInterval: SPEEDS[1],
+	logoInterval: 50, // default speed in ms (any positive number accepted)
 	slogan: "Code something that makes you proud",
 	sloganOn: true,
 	sloganColor: true,
@@ -729,11 +730,16 @@ class PiHeader implements Component {
 						);
 					} else {
 						quoteLineWidth = visibleWidth(sloganText);
-						rows.push(
-							state.sloganColor
-								? `[1m[${CMAP[state.sloganColorKey]}m${sloganText}[39m[22m`
-								: muted(`[1m${sloganText}[22m`),
-						);
+						if (state.sloganColor) {
+							const hasOpen = sloganText.startsWith('"');
+							const hasClose = sloganText.endsWith('"');
+							const inner = sloganText.slice(hasOpen ? 1 : 0, hasClose ? -1 : undefined);
+							rows.push(
+								`${hasOpen ? muted('"') : ''}[1m[${CMAP[state.sloganColorKey]}m${inner}[39m[22m${hasClose ? muted('"') : ''}`,
+							);
+						} else {
+							rows.push(muted(`[1m${sloganText}[22m`));
+						}
 					}
 				}
 			} else {
@@ -848,7 +854,7 @@ export function stateFromConfig(h: Record<string, any>): CCHeaderState {
 		),
 		logoInterval: pick(
 			h.speed,
-			(v) => typeof v === "number" && (SPEEDS as readonly number[]).includes(v),
+			(v) => typeof v === "number" && v > 0, // any positive ms value
 			DEFAULT_STATE.logoInterval,
 		),
 		slogan: pick(
@@ -1132,7 +1138,7 @@ export default function (pi: ExtensionAPI) {
 	/* ── /pch command ── */
 	pi.registerCommand("pch", {
 		description:
-			"pi-cc-header control: --tg (toggle enable/disable), --c <color> (logo color), --i (IBM stripes), --m (Minecraft), --sp <ms> (speed), --v [all|pi|off] (version color), --ps (pkg skills), --s [text|-c [code]|-d|-quote] (slogan, -c sets slogan color), --logo (custom ASCII logo), --df (defaults), --cl (clear config), --ml (toggle model/thinking line), --h (help)",
+			"pi-cc-header control: --tg (toggle enable/disable), --c <color> (logo color), --i (IBM stripes), --m (Minecraft), --sp <ms> (speed, any positive; presets 25/50/75/100), --v [all|pi|off] (version color), --ps (pkg skills), --s [text|-c [code]|-d|-quote] (slogan, -c sets slogan color), --logo (custom ASCII logo), --df (defaults), --cl (clear config), --ml (toggle model/thinking line), --h (help)",
 		handler: async (args, ctx) => {
 			const s = readSettings(settingsPath);
 			if (!s) {
@@ -1152,7 +1158,7 @@ export default function (pi: ExtensionAPI) {
   --c <code>        Logo color (c/a/r/o/y/g/w/b/p) | no arg = show current
   --i               Toggle IBM stripes
   --m               Toggle Minecraft gradient
-  --sp [ms]         Animation speed (25/50/75/100) | no arg = show current
+  --sp [ms]         Animation speed (any positive number; presets: 25/50/75/100) | no arg = show current
   --v [all|pi|off]  Version label color | no arg = cycle
   --ps              Toggle pkg skills visibility
   --s [txt|-c [code]|-d|-quote] Slogan: set text / toggle on-off / -c slogan color (codes like --c) / -d delete / -quote random quote
@@ -1272,21 +1278,21 @@ export default function (pi: ExtensionAPI) {
 				case "--sp": {
 					if (!flagArg) {
 						ctx.ui.notify(
-							`Animation speed: ${state.logoInterval}ms. Available: ${SPEEDS.join(" ")}`,
+							`Animation speed: ${state.logoInterval}ms. Presets: ${SPEEDS.join(" ")}ms (any positive number accepted)`,
 							"info",
 						);
 						return;
 					}
 					const n = Number(flagArg);
-					if (!(SPEEDS as readonly number[]).includes(n)) {
+					if (!(n > 0)) {
 						ctx.ui.notify(
-							`Invalid speed: "${n}". Available: ${SPEEDS.join(" ")}`,
+							`Invalid speed: "${n}". Use any positive number (e.g. ${SPEEDS.join(" ")}).`,
 							"error",
 						);
 						return;
 					}
 					doUpdate((st) => {
-						st.logoInterval = n as (typeof SPEEDS)[number];
+						st.logoInterval = n;
 						return `Animation speed: ${st.logoInterval}ms`;
 					});
 					return;

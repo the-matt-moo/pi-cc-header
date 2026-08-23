@@ -4,6 +4,12 @@
 
 All notable changes to pi-cc-header.
 
+## v1.0.6
+
+### Changed
+- Animation speed (`--sp`) now accepts any positive number, not just the preset list. Presets expanded to `25/30/35/40/45/50/75/100 ms` for finer control at the low end.
+- Quote rendering: opening and closing `"` characters stay grey/muted when the quote text is colored, preserving visual separation between punctuation and content.
+
 ## v1.0.5 (2026-08-23)
 
 ### Changed
