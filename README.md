@@ -80,7 +80,7 @@ Quotes are loaded from a `quotes.json` file. The package ships a default set of 
 ]
 ```
 
-Quotes over 10 words are split as evenly as possible across up to 2 lines, preferring a break at punctuation (`. , : ; -`). The author name sits centered beneath, in the slogan color.
+Quotes over 10 words are split as evenly as possible across up to 2 lines, preferring a break at punctuation (`. , : ; -`). The author name is right-aligned to the end of the longest quote line, in the slogan color.
 
 ### Custom ASCII logo
 

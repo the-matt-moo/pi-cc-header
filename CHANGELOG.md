@@ -4,6 +4,12 @@
 
 All notable changes to pi-cc-header.
 
+## v1.0.5 (2026-08-23)
+
+### Changed
+
+- Quote author name now right-aligned to the end of the longest quote line (first or second line), ensuring consistent visual alignment for both short and long quotes.
+
 ## v1.0.4 (2026-08-22)
 
 ### Changed

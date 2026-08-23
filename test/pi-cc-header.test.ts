@@ -144,22 +144,29 @@ describe("formatQuoteAuthor", () => {
 });
 
 describe("formatQuote", () => {
-	it("formats short quote (10 words or fewer) on 1 line with author below", () => {
+	it("formats short quote (10 words or fewer) on 1 line with author right-aligned", () => {
 		const result = formatQuote("We suffer more in imagination than in reality.", "Seneca");
-		assert.equal(
-			result,
-			'"We suffer more in imagination than in reality."\nSeneca',
-		);
+		const lines = result.split("\n");
+		assert.equal(lines.length, 2);
+		assert.ok(lines[0].startsWith('"'));
+		assert.ok(lines[0].endsWith('"'));
+		// Author should be right-aligned: ends at same column as quote line
+		const quoteWidth = lines[0].length;
+		const authorStart = lines[1].lastIndexOf("Seneca");
+		assert.equal(authorStart + "Seneca".length, quoteWidth);
 	});
 
-	it("formats long quote (> 10 words) split across 2 lines at punctuation with author below", () => {
+	it("formats long quote (> 10 words) split across 2 lines with author right-aligned to longest", () => {
 		const quote = "You have power over your mind - not outside events. Realize this, and you will find strength.";
 		const result = formatQuote(quote, "Marcus Aurelius");
 		const lines = result.split("\n");
 		assert.equal(lines.length, 3);
 		assert.ok(lines[0].startsWith('"'));
 		assert.ok(lines[1].endsWith('"'));
-		assert.equal(lines[2], "Marcus Aurelius");
+		// Author should be right-aligned to the longest quote line
+		const maxQuoteWidth = Math.max(lines[0].length, lines[1].length);
+		const authorStart = lines[2].lastIndexOf("Marcus Aurelius");
+		assert.equal(authorStart + "Marcus Aurelius".length, maxQuoteWidth);
 	});
 });
 

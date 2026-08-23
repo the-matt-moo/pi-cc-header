@@ -195,7 +195,10 @@ function loadQuotes(ctx: ExtensionContext): Quote[] {
 export function formatQuote(quote: string, author: string, punctBonus = 25): string {
 	const words = quote.trim().split(/\s+/);
 	if (words.length <= 10) {
-		return `"${quote}"\n${author}`;
+		const line = `"${quote}"`;
+		const pad = Math.max(0, visibleWidth(line) - visibleWidth(author));
+		return `${line}
+${" ".repeat(pad)}${author}`;
 	}
 
 	let bestI = 1;
@@ -215,7 +218,11 @@ export function formatQuote(quote: string, author: string, punctBonus = 25): str
 
 	const line1 = `"${words.slice(0, bestI).join(" ")}`;
 	const line2 = `${words.slice(bestI).join(" ")}"`;
-	return `${line1}\n${line2}\n${author}`;
+	const maxW = Math.max(visibleWidth(line1), visibleWidth(line2));
+	const pad = Math.max(0, maxW - visibleWidth(author));
+	return `${line1}
+${line2}
+${" ".repeat(pad)}${author}`;
 }
 
 export function getRandomQuote(ctx: ExtensionContext): string | null {
