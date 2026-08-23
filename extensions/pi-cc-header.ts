@@ -227,7 +227,7 @@ export function getRandomQuote(ctx: ExtensionContext): string | null {
 
 export function formatQuoteAuthor(author: string, colorKey: string): string {
 	const color = QUOTE_AUTHOR_COMPLEMENT[colorKey] ?? QUOTE_AUTHOR_COMPLEMENT.c;
-	return `\x1b[38;5;244m~\x1b[39m\x1b[${color}m${author}\x1b[39m`;
+	return `[${color}m${author}\x1b[39m`;
 }
 
 /* ── Pi logo animation ── */
@@ -718,7 +718,7 @@ class PiHeader implements Component {
 						rows.push(
 							state.sloganColor
 								? formatQuoteAuthor(paddedAuthor, state.sloganColorKey)
-								: `[38;5;244m~[39m${paddedAuthor}`,
+								: `${paddedAuthor}`,
 						);
 					} else {
 						quoteLineWidth = visibleWidth(sloganText);

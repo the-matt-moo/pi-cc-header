@@ -4,6 +4,12 @@
 
 All notable changes to pi-cc-header.
 
+## v1.0.4 (2026-08-22)
+
+### Changed
+
+- Remove the grey `~` tilde prefix from the quote author name line; author now renders cleanly right-justified without decoration.
+
 ## v1.0.3 (2026-08-22)
 
 ### Fixed

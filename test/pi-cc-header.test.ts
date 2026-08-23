@@ -135,10 +135,10 @@ describe("configWritesEnabled", () => {
 
 // ── formatQuote ──
 describe("formatQuoteAuthor", () => {
-	it("renders a grey tilde and a complementary author color", () => {
+	it("renders the author name in a complementary color with no tilde prefix", () => {
 		assert.equal(
 			formatQuoteAuthor("Seneca", "c"),
-			"\x1b[38;5;244m~\x1b[39m\x1b[38;2;4;182;203mSeneca\x1b[39m",
+			"\x1b[38;2;4;182;203mSeneca\x1b[39m",
 		);
 	});
 });
