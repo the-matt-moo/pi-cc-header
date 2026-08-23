@@ -4,6 +4,12 @@
 
 All notable changes to pi-cc-header.
 
+## v1.0.3 (2026-08-22)
+
+### Fixed
+
+- Quote author name now right-justified and aligned to end at the same column as the quote line above, improving visual alignment.
+
 ## v1.3.0 (2026-08-22)
 
 ### Added

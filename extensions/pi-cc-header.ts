@@ -700,6 +700,7 @@ class PiHeader implements Component {
 			if (state.sloganOn && state.slogan) {
 				rows.push("");
 				const sloganLines = state.slogan.split("\n");
+			let quoteLineWidth = 0; // Track width of the quote line for author right-justification
 				for (let idx = 0; idx < sloganLines.length; idx++) {
 					const line = sloganLines[idx];
 					const sloganW = visibleWidth(line);
@@ -710,16 +711,21 @@ class PiHeader implements Component {
 
 					const isAuthor = idx === sloganLines.length - 1 && sloganLines.length > 1;
 					if (isAuthor) {
+						// Right-justify author to match the width of the quote line above
+						const authorW = visibleWidth(sloganText);
+						const padding = Math.max(0, quoteLineWidth - authorW);
+						const paddedAuthor = " ".repeat(padding) + sloganText;
 						rows.push(
 							state.sloganColor
-								? formatQuoteAuthor(sloganText, state.sloganColorKey)
-								: `\x1b[38;5;244m~\x1b[39m${sloganText}`,
+								? formatQuoteAuthor(paddedAuthor, state.sloganColorKey)
+								: `[38;5;244m~[39m${paddedAuthor}`,
 						);
 					} else {
+						quoteLineWidth = visibleWidth(sloganText);
 						rows.push(
 							state.sloganColor
-								? `\x1b[1m\x1b[${CMAP[state.sloganColorKey]}m${sloganText}\x1b[39m\x1b[22m`
-								: muted(`\x1b[1m${sloganText}\x1b[22m`),
+								? `[1m[${CMAP[state.sloganColorKey]}m${sloganText}[39m[22m`
+								: muted(`[1m${sloganText}[22m`),
 						);
 					}
 				}
