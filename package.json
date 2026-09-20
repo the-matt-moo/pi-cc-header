@@ -41,11 +41,16 @@
     "image": "https://raw.githubusercontent.com/the-matt-moo/pi-cc-header/main/assets/thumbnail.png"
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.86.1",
+    "@earendil-works/pi-tui": "0.86.1",
     "@types/node": "^26.1.1",
     "typescript": "^7.0.2"
   },
   "scripts": {
     "test": "npx tsx --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.19.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

@@ -43,6 +43,7 @@ interface CCHeaderState {
 	sloganOn: boolean;
 	sloganColor: boolean;
 	sloganColorKey: string;
+	quoteMode: boolean;
 	disabled: boolean;
 	showModelLine: boolean; // NEW: toggle model/thinking line
 	customLogoLines: string[] | null;
