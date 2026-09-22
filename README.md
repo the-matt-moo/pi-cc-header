@@ -1,5 +1,7 @@
 # pi-cc-header
 
+![pi-cc-header preview](assets/pi-cc-header.gif)
+
 Claude Code–style startup header for [Pi](https://pi.dev). Animated Pi logo, 9-color palette, IBM stripes, Minecraft gradient, and a configurable info bar.
 
 Maintained independently. Includes custom ASCII logos, random quote slogans, and an independent slogan color.
