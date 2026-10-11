@@ -4,6 +4,11 @@
 
 All notable changes to pi-cc-header.
 
+## v1.1.0
+
+### Added
+- Pi-Bolt branding: title renders `Pi-Bolt <version> | Pi <version>` (yellow name, blue Bolt version, header-colored Pi version) and the animated logo's "i" pixels get yellow-top/blue-bottom coloring. Detected from the `pi-bolt` executable name plus adjacent `pi-bolt.txt` metadata; missing or invalid metadata falls back to standard Pi styling and custom ASCII logos are unchanged.
+
 ## v1.0.6
 
 ### Changed

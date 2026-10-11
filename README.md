@@ -26,6 +26,7 @@ Visual changes still apply per-session but won't be persisted.
 
 - 14-frame Pi logo animation, speed any positive ms (presets: 25/30/35/40/45/50/75/100)
 - 9-color palette: Anthropic orange, Clawd red, and more
+- Pi-Bolt detection: `Pi-Bolt <version> | Pi <version>` title (yellow name, blue Bolt version, header-colored Pi version) and yellow-top/blue-bottom "i" pixels. Uses the `pi-bolt` executable name and adjacent `pi-bolt.txt` metadata; missing or invalid metadata falls back to standard Pi styling. Custom ASCII logos remain unchanged.
 - IBM-style horizontal stripes
 - Minecraft-style pixel theme with 4-level 24-bit gradient
 - Info bar: version, model, thinking level, skills, prompts, extensions, cwd, AGENTS.md marker

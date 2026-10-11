@@ -19,6 +19,19 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
+export function detectBoltVersion(execPath = process.execPath): string | undefined {
+	if (!/(?:^|[\\/])pi-bolt(?:\.exe)?$/i.test(execPath)) return undefined;
+	try {
+		return /^Pi-Bolt (\S+) \(Pi /m.exec(
+			readFileSync(join(dirname(execPath), "pi-bolt.txt"), "utf8"),
+		)?.[1];
+	} catch {
+		return undefined;
+	}
+}
+
+const BOLT_VERSION = detectBoltVersion();
+
 /* ── Types ── */
 interface CCHeaderConfig extends Record<string, any> {
 	readOnlyConfig?: boolean;
@@ -94,6 +107,8 @@ const CMAP: Record<string, string> = {
 	p: "38;5;129",
 	c: "38;2;251;73;52",
 };
+const BOLT_YELLOW = "38;2;255;215;0"; // Ukrainian flag yellow
+const BOLT_BLUE = "38;2;0;87;183"; // Ukrainian flag blue
 const QUOTE_AUTHOR_COMPLEMENT: Record<string, string> = {
 	a: "38;2;38;136;168",
 	r: "38;5;51",
@@ -242,6 +257,8 @@ export function formatQuoteAuthor(author: string, colorKey: string): string {
 /* ── Pi logo animation ── */
 type LogoColor =
 	| "panel"
+	| "boltYellow"
+	| "boltBlue"
 	| "cyan"
 	| "red"
 	| "green"
@@ -309,6 +326,10 @@ const LAST_FRAME_INDEX = LOGO_FRAMES.length - 1;
 export const colorCell = (color: LogoColor): string => {
 	const cg = (n: number) => GMAP[state.logoColorKey]?.[n] ?? "34";
 	switch (color) {
+		case "boltYellow":
+			return `\x1b[${BOLT_YELLOW}m██\x1b[39m`;
+		case "boltBlue":
+			return `\x1b[${BOLT_BLUE}m██\x1b[39m`;
 		case "cyan":
 			return "\x1b[36m██\x1b[39m";
 		case "red":
@@ -381,8 +402,15 @@ export function logoCellColor(
 	frame: LogoFrame,
 	y: number,
 	x: number,
+	isBolt = BOLT_VERSION !== undefined,
 ): LogoColor {
 	const key = `${y},${x}`;
+
+	if (isBolt && frame.phase >= 4 && x === 5) {
+		const top = frame.phase === 4 ? 4 : 5;
+		if (y === top) return "boltYellow";
+		if (y === top + 1) return "boltBlue";
+	}
 
 	if (frame.white) return WHITE_CELLS.has(key) ? "white" : "panel";
 	if (frame.flash && y === 6 && x >= 1 && x <= 6) return "flash";
@@ -440,7 +468,10 @@ export function logoCellColor(
 	return "panel";
 }
 
-function piLogoFrame(frameIndex: number): string[] {
+export function piLogoFrame(
+	frameIndex: number,
+	isBolt = BOLT_VERSION !== undefined,
+): string[] {
 	if (frameIndex === LAST_FRAME_INDEX && state.customLogoLines) {
 		return state.customLogoLines;
 	}
@@ -449,7 +480,7 @@ function piLogoFrame(frameIndex: number): string[] {
 	for (let y = 1; y <= LOGO_ROWS; y++) {
 		let line = "";
 		for (let x = 1; x <= LOGO_COLS; x++)
-			line += colorCell(logoCellColor(frame, y, x));
+			line += colorCell(logoCellColor(frame, y, x, isBolt));
 		lines.push(line);
 	}
 	return lines;
@@ -632,6 +663,21 @@ function invalidateStats(): void {
 	cachedStats = null;
 }
 
+export function formatVersionTitle(
+	muted: (text: string) => string,
+	boltVersion = BOLT_VERSION,
+	piVersion = VERSION,
+): string {
+	const color = CMAP[state.logoColorKey];
+	if (boltVersion !== undefined)
+		return `\x1b[${BOLT_YELLOW}mPi-Bolt\x1b[39m \x1b[${BOLT_BLUE}m${boltVersion}\x1b[39m ${muted("|")} \x1b[${color}mPi ${piVersion}\x1b[39m`;
+	return state.versionColored >= 2
+		? `\x1b[${color}mPi v${piVersion}\x1b[39m`
+		: state.versionColored >= 1
+			? `\x1b[${color}mPi\x1b[39m ${muted(`v${piVersion}`)}`
+			: muted(`Pi v${piVersion}`);
+}
+
 /* ── Component: startup header ── */
 class PiHeader implements Component {
 	private frame = 0;
@@ -690,12 +736,7 @@ class PiHeader implements Component {
 				this.stats.extensions.residue > 0
 					? `${this.stats.extensions.installed}(+${this.stats.extensions.residue}) extensions`
 					: `${this.stats.extensions.installed} extensions`;
-			const piText =
-				state.versionColored >= 2
-					? `\x1b[${CMAP[state.logoColorKey]}mPi v${VERSION}\x1b[39m`
-					: state.versionColored >= 1
-						? `\x1b[${CMAP[state.logoColorKey]}mPi\x1b[39m ${muted(`v${VERSION}`)}`
-						: muted(`Pi v${VERSION}`);
+			const piText = formatVersionTitle(muted);
 
 			const modelLine = `${model} · ${effort}${this.stats.agents ? `  |  ${this.stats.agents}` : ""}`;
 

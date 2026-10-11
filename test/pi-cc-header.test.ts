@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
 	pick,
@@ -13,7 +14,61 @@ import {
 	configWritesEnabled,
 	formatQuote,
 	formatQuoteAuthor,
+	detectBoltVersion,
+	formatVersionTitle,
+	piLogoFrame,
 } from "../extensions/pi-cc-header.ts";
+
+const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+
+describe("Pi-Bolt rendering", () => {
+	it("detects only a Bolt executable with valid sibling metadata", () => {
+		const dir = mkdtempSync(join(tmpdir(), "cc-header-"));
+		try {
+			const exe = join(dir, "pi-bolt.exe");
+			assert.equal(detectBoltVersion(exe), undefined);
+			writeFileSync(join(dir, "pi-bolt.txt"), "Pi-Bolt 0.8.4 (Pi 1.1.0), win32-x64, JIT off\n");
+			assert.equal(detectBoltVersion(exe), "0.8.4");
+			assert.equal(detectBoltVersion(join(dir, "pi-bolt")), "0.8.4");
+			assert.equal(detectBoltVersion(join(dir, "node.exe")), undefined);
+			assert.equal(detectBoltVersion(join(dir, "pi.exe")), undefined);
+			writeFileSync(join(dir, "pi-bolt.txt"), "invalid metadata");
+			assert.equal(detectBoltVersion(exe), undefined);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("preserves the standard title and formats both Bolt and Pi versions", () => {
+		const muted = (text: string) => `\x1b[90m${text}\x1b[39m`;
+		assert.equal(formatVersionTitle(muted, undefined, "1.1.0"),
+			"\x1b[38;2;251;73;52mPi\x1b[39m \x1b[90mv1.1.0\x1b[39m");
+		assert.equal(formatVersionTitle(muted, "0.8.4", "1.1.0"),
+			"\x1b[38;2;255;215;0mPi-Bolt\x1b[39m \x1b[38;2;0;87;183m0.8.4\x1b[39m \x1b[90m|\x1b[39m \x1b[38;2;251;73;52mPi 1.1.0\x1b[39m");
+	});
+
+	it("changes only the two i pixels once assembled, preserving every frame's geometry", () => {
+		for (let frame = 0; frame < 22; frame++) {
+			const standard = piLogoFrame(frame, false);
+			const bolt = piLogoFrame(frame, true);
+			assert.deepEqual(bolt.map(stripAnsi), standard.map(stripAnsi));
+			if (frame < 16) {
+				assert.deepEqual(bolt, standard);
+				continue;
+			}
+			const top = frame === 16 ? 4 : 5;
+			for (let row = 1; row <= 7; row++) {
+				const cells = standard[row - 1].match(/\x1b\[(?!39m)[0-9;]*m(?:██|──)\x1b\[39m|\x1b\[39m██|  /g)!;
+				if (row === top) cells[4] = colorCell("boltYellow");
+				if (row === top + 1) cells[4] = colorCell("boltBlue");
+				assert.equal(bolt[row - 1], cells.join(""));
+			}
+		}
+		const final = piLogoFrame(21, true);
+		assert.ok(final[4].includes("\x1b[38;2;255;215;0m██\x1b[39m"));
+		assert.ok(final[5].includes("\x1b[38;2;0;87;183m██\x1b[39m"));
+	});
+});
 
 // ── pick ──
 describe("pick", () => {
