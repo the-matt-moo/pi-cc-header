@@ -108,7 +108,7 @@ const CMAP: Record<string, string> = {
 	c: "38;2;251;73;52",
 };
 const BOLT_YELLOW = "38;2;255;215;0"; // Ukrainian flag yellow
-const BOLT_BLUE = "38;2;0;87;183"; // Ukrainian flag blue
+const quoteTextColor = () => CMAP[state.sloganColorKey] ?? CMAP.c;
 const QUOTE_AUTHOR_COMPLEMENT: Record<string, string> = {
 	a: "38;2;38;136;168",
 	r: "38;5;51",
@@ -329,7 +329,7 @@ export const colorCell = (color: LogoColor): string => {
 		case "boltYellow":
 			return `\x1b[${BOLT_YELLOW}m██\x1b[39m`;
 		case "boltBlue":
-			return `\x1b[${BOLT_BLUE}m██\x1b[39m`;
+			return `\x1b[${quoteTextColor()}m██\x1b[39m`;
 		case "cyan":
 			return "\x1b[36m██\x1b[39m";
 		case "red":
@@ -670,7 +670,7 @@ export function formatVersionTitle(
 ): string {
 	const color = CMAP[state.logoColorKey];
 	if (boltVersion !== undefined)
-		return `\x1b[${BOLT_YELLOW}mPi-Bolt\x1b[39m \x1b[${BOLT_BLUE}m${boltVersion}\x1b[39m ${muted("|")} \x1b[${color}mPi ${piVersion}\x1b[39m`;
+		return `\x1b[${BOLT_YELLOW}mPi-Bolt\x1b[39m \x1b[${quoteTextColor()}m${boltVersion}\x1b[39m ${muted("|")} \x1b[${color}mPi ${piVersion}\x1b[39m`;
 	return state.versionColored >= 2
 		? `\x1b[${color}mPi v${piVersion}\x1b[39m`
 		: state.versionColored >= 1

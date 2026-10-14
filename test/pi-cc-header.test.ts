@@ -44,7 +44,7 @@ describe("Pi-Bolt rendering", () => {
 		assert.equal(formatVersionTitle(muted, undefined, "1.1.0"),
 			"\x1b[38;2;251;73;52mPi\x1b[39m \x1b[90mv1.1.0\x1b[39m");
 		assert.equal(formatVersionTitle(muted, "0.8.4", "1.1.0"),
-			"\x1b[38;2;255;215;0mPi-Bolt\x1b[39m \x1b[38;2;0;87;183m0.8.4\x1b[39m \x1b[90m|\x1b[39m \x1b[38;2;251;73;52mPi 1.1.0\x1b[39m");
+			"\x1b[38;2;255;215;0mPi-Bolt\x1b[39m \x1b[38;2;251;73;52m0.8.4\x1b[39m \x1b[90m|\x1b[39m \x1b[38;2;251;73;52mPi 1.1.0\x1b[39m");
 	});
 
 	it("changes only the two i pixels once assembled, preserving every frame's geometry", () => {
@@ -66,7 +66,7 @@ describe("Pi-Bolt rendering", () => {
 		}
 		const final = piLogoFrame(21, true);
 		assert.ok(final[4].includes("\x1b[38;2;255;215;0m██\x1b[39m"));
-		assert.ok(final[5].includes("\x1b[38;2;0;87;183m██\x1b[39m"));
+		assert.ok(final[5].includes("\x1b[38;2;251;73;52m██\x1b[39m"));
 	});
 });
 

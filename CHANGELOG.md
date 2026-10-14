@@ -4,6 +4,11 @@
 
 All notable changes to pi-cc-header.
 
+## v1.1.1
+
+### Changed
+- Pi-Bolt version and the logo’s bottom “i” pixel now match the quote text color.
+
 ## v1.1.0
 
 ### Added
